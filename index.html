@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BotTok</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#090909;color:white;font-family:Arial}
+header{padding:18px;display:flex;justify-content:space-between;
+align-items:center;border-bottom:1px solid #292929}
+.logo{font-size:25px;font-weight:bold}
+.logo span{color:#fe2c55}
+button{cursor:pointer;border:0;color:white;background:#fe2c55;
+padding:11px 16px;border-radius:10px;font-weight:bold}
+input,textarea{width:100%;padding:13px;margin:7px 0;
+border:1px solid #444;border-radius:10px;background:#202020;color:white}
+nav{position:fixed;bottom:0;width:100%;background:#111;
+display:flex;justify-content:space-around;padding:13px}
+nav button{background:transparent;font-size:14px}
+main{padding:15px;padding-bottom:90px}
+.page{display:none}
+.page.active{display:block}
+.search{margin-bottom:15px}
+.bot{background:#191919;padding:18px;border-radius:16px;
+margin-bottom:13px}
+.avatar{font-size:38px}
+.bot h2{margin:8px 0}
+.muted{color:#aaa;font-size:13px}
+.actions{display:flex;gap:10px;margin-top:15px}
+.actions button{flex:1}
+.chatbox{height:55vh;overflow-y:auto;background:#151515;
+padding:12px;border-radius:12px;margin:12px 0}
+.message{padding:11px;margin:8px 0;border-radius:12px;
+background:#292929;max-width:85%}
+.mine{background:#fe2c55;margin-left:auto}
+</style>
+</head>
+<body>
+
+<header>
+<div class="logo">Bot<span>Tok</span></div>
+<button onclick="show('create')">+ Create bot</button>
+</header>
+
+<main>
+<section id="home" class="page active">
+<h2>Discover bots</h2>
+<input class="search" id="search" placeholder="Search bots..." oninput="render()">
+<div id="feed"></div>
+</section>
+
+<section id="create" class="page">
+<h2>Create your bot</h2>
+<input id="botname" placeholder="Bot name">
+<input id="emoji" placeholder="Bot emoji e.g. 🤖">
+<input id="creator" placeholder="Your creator name">
+<textarea id="personality" placeholder="Describe your bot's personality"></textarea>
+<button onclick="createBot()">Publish bot</button>
+</section>
+
+<section id="profile" class="page">
+<h2>Your profile</h2>
+<div class="bot">
+<div class="avatar">👤</div>
+<h2>BotTok creator</h2>
+<p class="muted">Create and share your own AI bots.</p>
+</div>
+<h3>Your published bots</h3>
+<div id="mybots"></div>
+</section>
+
+<section id="chat" class="page">
+<button onclick="show('home')">← Back</button>
+<h2 id="chatname">Bot</h2>
+<div class="chatbox" id="messages"></div>
+<input id="chatinput" placeholder="Message this bot..."
+onkeydown="if(event.key==='Enter')sendMessage()">
+<button onclick="sendMessage()">Send</button>
+</section>
+</main>
+
+<nav>
+<button onclick="show('home')">⌂ Home</button>
+<button onclick="show('create')">＋ Create</button>
+<button onclick="show('profile')">♙ Profile</button>
+</nav>
+
+<script>
+let bots = JSON.parse(localStorage.getItem("bottok") || "null") || [
+ {id:1,name:"Funny AI",emoji:"😂",creator:"BotTok",personality:"You are funny and make jokes.",likes:12},
+ {id:2,name:"Study Buddy",emoji:"📚",creator:"BotTok",personality:"You help people understand school subjects.",likes:25},
+ {id:3,name:"Spider AI",emoji:"🕷️",creator:"BotTok",personality:"You love superheroes and Spider-Man.",likes:48}
+];
+
+let currentBot=null;
+let liked=JSON.parse(localStorage.getItem("liked")||"[]");
+
+function save(){
+ localStorage.setItem("bottok",JSON.stringify(bots));
+ localStorage.setItem("liked",JSON.stringify(liked));
+}
+
+function show(id){
+ document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+ document.getElementById(id).classList.add("active");
+ if(id==="profile")renderProfile();
+}
+
+function render(){
+ let q=document.getElementById("search").value.toLowerCase();
+ let feed=document.getElementById("feed");
+ feed.innerHTML="";
+ bots.filter(b=>b.name.toLowerCase().includes(q) ||
+ b.creator.toLowerCase().includes(q)).forEach(b=>{
+ let card=document.createElement("div");
+ card.className="bot";
+ card.innerHTML=`
+ <div class="avatar">${b.emoji}</div>
+ <h2>${escapeHTML(b.name)}</h2>
+ <p class="muted">Created by ${escapeHTML(b.creator)}</p>
+ <p>${escapeHTML(b.personality)}</p>
+ <div class="actions">
+ <button class="like">${liked.includes(b.id)?"♥":"♡"} ${b.likes}</button>
+ <button class="chat">Chat</button>
+ </div>`;
+ card.querySelector(".like").onclick=()=>toggleLike(b.id);
+ card.querySelector(".chat").onclick=()=>openChat(b.id);
+ feed.appendChild(card);
+ });
+}
+
+function escapeHTML(s){
+ return String(s).replace(/[&<>"']/g,c=>({
+ "&":"&amp;","<":"&lt;",">":"&gt;",
+ '"':"&quot;","'":"&#39;"
+ })[c]);
+}
+
+function toggleLike(id){
+ let b=bots.find(x=>x.id===id);
+ if(liked.includes(id)){
+ liked=liked.filter(x=>x!==id);b.likes--;
+ }else{liked.push(id);b.likes++}
+ save();render();
+}
+
+function createBot(){
+ let name=document.getElementById("botname").value.trim();
+ let emoji=document.getElementById("emoji").value.trim()||"🤖";
+ let creator=document.getElementById("creator").value.trim()||"Creator";
+ let personality=document.getElementById("personality").value.trim();
+ if(!name||!personality){alert("Add a name and personality!");return}
+ bots.unshift({id:Date.now(),name,emoji,creator,personality,likes:0});
+ save();
+ document.getElementById("botname").value="";
+ document.getElementById("emoji").value="";
+ document.getElementById("creator").value="";
+ document.getElementById("personality").value="";
+ render();show("home");
+}
+
+function renderProfile(){
+ let area=document.getElementById("mybots");
+ area.innerHTML="";
+ bots.forEach(b=>{
+ let item=document.createElement("div");
+ item.className="bot";
+ item.textContent=b.emoji+" "+b.name+" · "+b.likes+" likes";
+ area.appendChild(item);
+ });
+}
+
+function openChat(id){
+ currentBot=bots.find(b=>b.id===id);
+ document.getElementById("chatname").textContent=
+ currentBot.emoji+" "+currentBot.name;
+ document.getElementById("messages").innerHTML=
+ `<div class="message">Hey! I'm ${escapeHTML(currentBot.name)}. Start chatting!</div>`;
+ show("chat");
+}
+
+function sendMessage(){
+ let input=document.getElementById("chatinput");
+ let text=input.value.trim();
+ if(!text||!currentBot)return;
+ let box=document.getElementById("messages");
+ let user=document.createElement("div");
+ user.className="message mine";
+ user.textContent=text;
+ box.appendChild(user);
+ input.value="";
+ let reply=document.createElement("div");
+ reply.className="message";
+ reply.textContent="I'm "+currentBot.name+"! My personality is: "+
+ currentBot.personality+" (This is a demo reply.)";
+ box.appendChild(reply);
+ box.scrollTop=box.scrollHeight;
+}
+
+render();
+</script>
+</body>
+</html>
